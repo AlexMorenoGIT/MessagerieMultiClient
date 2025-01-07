@@ -5,7 +5,7 @@
 #include <pthread.h>
 #include <arpa/inet.h>
 #include <time.h>
-#include <stdarg.h> // Pour va_start et va_end
+#include <stdarg.h>
 #include "common.h"
 
 // Déclaration des canaux globaux
@@ -20,13 +20,7 @@ void sendChannelHistory(int clientSocket, Channel *channel);
 void logMessage(const char *level, const char *format, ...);
 void getCurrentTime(char *buffer, size_t size);
 
-int main(int argc, char *argv[]) {
-    // Vérification des arguments
-    if (argc != 2) {
-        fprintf(stderr, "Vous devez spécifier le port du serveur.\n");
-        return EXIT_FAILURE;
-    }
-
+int main() {
     // Création de la socket du serveur
     int serverSocket = socket(AF_INET, SOCK_STREAM, 0);
     if (serverSocket < 0) {
@@ -39,25 +33,27 @@ int main(int argc, char *argv[]) {
     // Configuration de l'adresse du serveur
     struct sockaddr_in serverAddress = {
         .sin_family = AF_INET,
-        .sin_port = htons(atoi(argv[1])),
-        .sin_addr.s_addr = INADDR_ANY
+        .sin_port = htons(DEFAULT_SERVER_PORT),
+        .sin_addr.s_addr = inet_addr(DEFAULT_SERVER_ADDRESS)
     };
 
     // Liaison de la socket à l'adresse et au port
     if (bind(serverSocket, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0) {
         perror("Erreur lors du bind");
-        logMessage("ERREUR", "Échec du bind sur le port %s.", argv[1]);
+        logMessage("ERREUR", "Échec du bind sur le port %d.", DEFAULT_SERVER_PORT);
+        close(serverSocket);
         return EXIT_FAILURE;
     }
-    logMessage("INFO", "Socket liée au port %s.", argv[1]);
+    logMessage("INFO", "Socket liée à l'adresse %s et au port %d.", DEFAULT_SERVER_ADDRESS, DEFAULT_SERVER_PORT);
 
     // Mise en écoute des connexions
     if (listen(serverSocket, MAX_CLIENTS) < 0) {
         perror("Erreur lors de l'écoute");
-        logMessage("ERREUR", "Échec de l'écoute sur le port %s.", argv[1]);
+        logMessage("ERREUR", "Échec de l'écoute sur le port %d.", DEFAULT_SERVER_PORT);
+        close(serverSocket);
         return EXIT_FAILURE;
     }
-    logMessage("INFO", "Serveur en écoute sur le port %s.", argv[1]);
+    logMessage("INFO", "Serveur en écoute sur l'adresse %s et le port %d.", DEFAULT_SERVER_ADDRESS, DEFAULT_SERVER_PORT);
 
     while (1) {
         struct sockaddr_in clientAddress;
@@ -89,11 +85,11 @@ int main(int argc, char *argv[]) {
 
 // Fonction pour gérer un client
 void *handleClient(void *arg) {
-    int clientSocket = (intptr_t)arg; // intptr_t pour convertir un void * en int
+    int clientSocket = (intptr_t)arg;
     char buffer[MAX_MSG_LENGTH];
     char username[MAX_NAME_LENGTH];
     char channelName[MAX_NAME_LENGTH];
-    char timeBuffer[9]; // Format HH:MM:SS
+    char timeBuffer[9];
 
     // Réception du nom d'utilisateur
     recv(clientSocket, username, sizeof(username), 0);
@@ -112,31 +108,23 @@ void *handleClient(void *arg) {
         logMessage("INFO", "Nouveau channel créé : %s", channelName);
     }
 
-    // Ces trois lignes sont nécessaires pour stocker les clients dans le canal
     channel->clients[channel->clientCount++] = malloc(sizeof(Client));
     strcpy(channel->clients[channel->clientCount - 1]->username, username);
     channel->clients[channel->clientCount - 1]->socket = clientSocket;
 
-    // Annonce de la connexion du client au canal
     getCurrentTime(timeBuffer, sizeof(timeBuffer));
     snprintf(buffer, sizeof(buffer), COLOR_MAGENTA "[%s] %s a rejoint le channel.\n" COLOR_RESET, timeBuffer, username);
     sendMessageToChannel(channel, buffer);
     logMessage("INFO", "%s a rejoint le channel %s", username, channelName);
 
-    // Envoi de l'historique des messages sur le canal au client
     sendChannelHistory(clientSocket, channel);
 
-    // Boucle principale pour gérer les messages des clients
     while (1) {
-        memset(buffer, 0, sizeof(buffer)); // Nettoyage du tampon
-        int bytesReceived = recv(clientSocket, buffer, sizeof(buffer) - 1, 0); // Réception du message
+        memset(buffer, 0, sizeof(buffer));
+        int bytesReceived = recv(clientSocket, buffer, sizeof(buffer) - 1, 0);
 
-        // Si la connexion est interrompue
         if (bytesReceived <= 0) {
             logMessage("INFO", "%s s'est déconnecté.", username);
-            printf(COLOR_YELLOW "%s a s'est déconnecté.\n" COLOR_RESET, username);
-
-            // Annonce du départ du client du canal
             getCurrentTime(timeBuffer, sizeof(timeBuffer));
             snprintf(buffer, sizeof(buffer), COLOR_MAGENTA "[%s] %s a quitté le channel.\n" COLOR_RESET, timeBuffer, username);
             sendMessageToChannel(channel, buffer);
@@ -144,8 +132,7 @@ void *handleClient(void *arg) {
             break;
         }
 
-        // Formattage du message et envoi au canal
-        buffer[bytesReceived] = '\0'; // Retire le caractère de fin de ligne
+        buffer[bytesReceived] = '\0';
         char formattedMessage[MAX_MSG_LENGTH];
         getCurrentTime(timeBuffer, sizeof(timeBuffer));
         snprintf(formattedMessage, sizeof(formattedMessage), COLOR_YELLOW "[%s] [%s] : %s" COLOR_RESET, timeBuffer, username, buffer);

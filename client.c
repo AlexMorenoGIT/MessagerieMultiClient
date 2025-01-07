@@ -10,11 +10,10 @@
 void *receiveMessages(void *arg);
 void displayBanner(const char *channelName);
 
-int main(int argc, char *argv[]) {
-    if (argc != 3) {
-        fprintf(stderr, "Usage : %s <adresse_serveur> <port>\n", argv[0]);
-        return EXIT_FAILURE;
-    }
+int main() {
+    // Adresse et port par défaut définis dans common.h
+    const char *serverAddress = DEFAULT_SERVER_ADDRESS;
+    const int port = DEFAULT_SERVER_PORT;
 
     // Création de la socket du client
     int clientSocket = socket(AF_INET, SOCK_STREAM, 0);
@@ -24,14 +23,14 @@ int main(int argc, char *argv[]) {
     }
 
     // Configuration de l'adresse du serveur
-    struct sockaddr_in serverAddress = {
+    struct sockaddr_in serverAddressStruct = {
         .sin_family = AF_INET,
-        .sin_port = htons(atoi(argv[2]))
+        .sin_port = htons(port)
     };
-    inet_pton(AF_INET, argv[1], &serverAddress.sin_addr);
+    inet_pton(AF_INET, serverAddress, &serverAddressStruct.sin_addr);
 
     // Connexion au serveur
-    if (connect(clientSocket, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0) {
+    if (connect(clientSocket, (struct sockaddr *)&serverAddressStruct, sizeof(serverAddressStruct)) < 0) {
         perror("Erreur lors de la connexion au serveur");
         return EXIT_FAILURE;
     }

@@ -8,6 +8,10 @@
 #define MAX_NAME_LENGTH 32     // Taille maximale pour un nom d'utilisateur ou de canal
 #define MAX_HISTORY 100        // Nombre maximum de messages à conserver dans l'historique d'un canal
 
+// Adresse et port par défaut
+#define DEFAULT_SERVER_ADDRESS "127.0.0.1"
+#define DEFAULT_SERVER_PORT 8000
+
 // Colors for terminal output
 #define COLOR_RESET   "\033[0m"   // Réinitialisation de la couleur
 #define COLOR_RED     "\033[31m"  // Rouge
